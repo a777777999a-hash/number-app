@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>彩球累加器 (完整彩球 + 39組彩球)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; margin-bottom: 30px; }
+    th, td { border: 1px solid #999; padding: 6px; text-align: center; }
+    th { background: #eee; }
+    input { padding: 6px; font-size: 16px; width: 100%; box-sizing: border-box; margin-bottom: 10px; }
+    button { padding: 6px 12px; font-size: 16px; margin-top: 5px; margin-right: 5px; }
+    h3 { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h2>彩球累加器 (完整彩球 + 39組彩球)</h2>
+
+  <input type="text" id="inputNumbers" placeholder="輸入數字，用逗號或空白分隔">
+  <button onclick="processNumbers()">確認</button>
+  <button onclick="undo()">回上一步</button>
+  <button onclick="resetB()">清除 B欄累加值</button>
+
+  <h3>上一次輸入紀錄</h3>
+  <div id="lastInput">尚無紀錄</div>
+
+  <h3>完整彩球累加器 (前4組最高)</h3>
+  <div id="topFullGroups"></div>
+  <table>
+    <thead>
+      <tr><th>A欄 (群組)</th><th>B欄 (累加值)</th><th>C欄 (歷史最高)</th></tr>
+    </thead>
+    <tbody id="fullTableBody"></tbody>
+  </table>
+
+  <h3>39組彩球累加器 (前4組最高)</h3>
+  <div id="top39Groups"></div>
+  <table>
+    <thead>
+      <tr><th>A欄 (號碼)</th><th>B欄 (累加值)</th><th>C欄 (歷史最高)</th></tr>
+    </thead>
+    <tbody id="table39Body"></tbody>
+  </table>
+
+<script>
+  // 完整彩球號碼 (包含新增的 9 組)
+  const fullGroups = [
+    "10,20,30","1,11,21,31","2,12,22,32","3,13,23,33","4,14,24,34",
+    "5,15,25,35","6,16,26,36","7,17,27,37","8,18,28,38","9,19,29,39",
+    "11,22,33","1,3,5,7","3,5,7,9","5,7,9,11","7,9,11,13","9,11,13,15",
+    "11,13,15,17","13,15,17,19","15,17,19,21","17,19,21,23","19,21,23,25",
+    "21,23,25,27","23,25,27,29","25,27,29,31","27,29,31,33","29,31,33,35",
+    "31,33,35,37","33,35,37,39","35,37,39,1","37,39,1,3","39,1,3,5","2,4,6,8",
+    "4,6,8,10","6,8,10,12","8,10,12,14","10,12,14,16","12,14,16,18","14,16,18,20",
+    "16,18,20,22","18,20,22,24","20,22,24,26","22,24,26,28","24,26,28,30",
+    "26,28,30,32","28,30,32,34","30,32,34,36","32,34,36,38","34,36,38,2",
+    "36,38,2,4","38,2,4,6","1,2,3,4","2,3,4,5","3,4,5,6","4,5,6,7","5,6,7,8",
+    "6,7,8,9","7,8,9,10","8,9,10,11","9,10,11,12","10,11,12,13","11,12,13,14",
+    "12,13,14,15","13,14,15,16","14,15,16,17","15,16,17,18","16,17,18,19",
+    "17,18,19,20","18,19,20,21","19,20,21,22","20,21,22,23","21,22,23,24",
+    "22,23,24,25","23,24,25,26","24,25,26,27","25,26,27,28","26,27,28,29",
+    "27,28,29,30","28,29,30,31","29,30,31,32","30,31,32,33","31,32,33,34",
+    "32,33,34,35","33,34,35,36","34,35,36,37","35,36,37,38","36,37,38,39",
+    "37,38,39,1","38,39,1,2","39,1,2,3",
+    // 新增的 9 組
+    "1,10,19,28","2,11,20,29","3,12,21,30","4,13,22,31","5,14,23,32",
+    "6,15,24,33","7,16,25,34","8,17,26,35","9,18,27,36"
+  ];
+
+  // 39組彩球
+  const groups39 = Array.from({length:39},(_,i)=>(i+1).toString());
+
+  // 宣告全域變數
+  let BFull=[], CFull=[], B39=[], C39=[], lastInput="";
+  let prevBFull=[], prevCFull=[], prevB39=[], prevC39=[], prevLastInput="";
+
+  // 載入資料並補零
+  function loadData(){
+    let savedBFull = JSON.parse(localStorage.getItem("BFull")) || [];
+    let savedCFull = JSON.parse(localStorage.getItem("CFull")) || [];
+    let savedB39   = JSON.parse(localStorage.getItem("B39"))   || [];
+    let savedC39   = JSON.parse(localStorage.getItem("C39"))   || [];
+
+    if(savedBFull.length !== fullGroups.length) savedBFull = Array(fullGroups.length).fill(0);
+    if(savedCFull.length !== fullGroups.length) savedCFull = Array(fullGroups.length).fill(0);
+    if(savedB39.length   !== groups39.length)   savedB39   = Array(groups39.length).fill(0);
+    if(savedC39.length   !== groups39.length)   savedC39   = Array(groups39.length).fill(0);
+
+    BFull = savedBFull;
+    CFull = savedCFull;
+    B39   = savedB39;
+    C39   = savedC39;
+
+    lastInput = JSON.parse(localStorage.getItem("lastInput")) || "";
+  }
+
+  function saveData(){
+    localStorage.setItem("BFull",JSON.stringify(BFull));
+    localStorage.setItem("CFull",JSON.stringify(CFull));
+    localStorage.setItem("B39",JSON.stringify(B39));
+    localStorage.setItem("C39",JSON.stringify(C39));
+    localStorage.setItem("lastInput",JSON.stringify(lastInput));
+  }
+
+  function renderTables(){
+    const tbodyFull=document.getElementById("fullTableBody");
+    tbodyFull.innerHTML="";
+    fullGroups.forEach((grp,i)=>{
+      tbodyFull.innerHTML+=`<tr><td>${grp}</td><td>${BFull[i]}</td><td>${CFull[i]}</td></tr>`;
+    });
+
+    const tbody39=document.getElementById("table39Body");
+    tbody39.innerHTML="";
+    groups39.forEach((grp,i)=>{
+      tbody39.innerHTML+=`<tr><td>${grp}</td><td>${B39[i]}</td><td>${C39[i]}</td></tr>`;
+    });
+
+    updateTop(fullGroups,BFull,"topFullGroups");
+    updateTop(groups39,B39,"top39Groups");
+
+    document.getElementById("lastInput").innerText=lastInput||"尚無紀錄";
+  }
+
+  function updateTop(groupsArr,Barr,divId){
+    const sorted=groupsArr.map((grp,i)=>({grp,val:Barr[i]})).sort((a,b)=>b.val-a.val);
+    const top4=sorted.slice(0,4).map(x=>`${x.grp} (${x.val})`);
+    document.getElementById(divId).innerHTML=top4.join(" , ");
+  }
+
+  function processNumbers(){
+    const input=document.getElementById("inputNumbers").value.trim();
+    if(!input) return;
+
+    prevBFull=[...BFull]; prevCFull=[...CFull];
+    prevB39=[...B39]; prevC39=[...C39];
+    prevLastInput=lastInput;
+
+    lastInput=input;
+    const inputs=input.split(/[\s,]+/).map(x=>parseInt(x)).filter(x=>!isNaN(x));
+
+    const zeroFull=new Set();
+    inputs.forEach(val=>{
+      fullGroups.forEach((grp,i)=>{
+        const nums=grp.split(",").map(x=>parseInt(x));
+        if(nums.includes(val)) zeroFull.add(i);
+      });
+    });
+    BFull=BFull.map((v,i)=>zeroFull.has(i)?0:v+1);
+    BFull.forEach((v,i)=>{if(v>CFull[i]) CFull[i]=v;});
+
+    const zero39=new Set();
+    inputs.forEach(val=>{
+      const idx=groups39.indexOf(val.toString());
+      if(idx!==-1) zero39.add(idx);
+    });
+    B39=B39.map((v,i)=>zero39.has(i)?0:v+1);
+    B39.forEach((v,i)=>{if(v>C39[i]) C39[i]=v;});
+
+    saveData();
+    renderTables();
+    document.getElementById("inputNumbers").value="";
+  }
+
+  function undo(){
+    BFull=[...prevBFull]; CFull=[...prevCFull];
+    B39=[...prevB39]; C39=[...prevC39];
+    lastInput=prevLastInput;
+    saveData();
+    renderTables();
+  }
+
+  function resetB(){
+    BFull=Array(fullGroups.length).fill(0);
+    B39=Array(groups39.length).fill(0);
+    saveData();
+    renderTables();
+  }
+
+  loadData();
+  renderTables();
+</script>
+</body>
+</html>
